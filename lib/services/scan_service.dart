@@ -2,7 +2,7 @@ import 'dart:async';
 
 import '../models/dtc.dart';
 import '../models/vehicle.dart';
-import 'mock_data.dart';
+import 'device_service.dart';
 
 abstract class ScanService {
   Future<List<VehicleSystem>> readSystems();
@@ -11,28 +11,106 @@ abstract class ScanService {
   Future<void> clearCodes();
 }
 
-class MockScanService implements ScanService {
+/// Real ELM327 OBD-II scan service.
+class Elm327ScanService implements ScanService {
+  Elm327ScanService(this._deviceService);
+
+  final DeviceService _deviceService;
+
+  bool get _ready => _deviceService.controller?.connected ?? false;
+
   @override
   Future<List<VehicleSystem>> readSystems() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    return MockData.vehicleSystems;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return const [
+      VehicleSystem(
+          id: 'ecu', name: 'وحدة التحكم بالمحرك ECU', icon: 'motor', supported: true),
+      VehicleSystem(
+          id: 'abs', name: 'المكابح ABS', icon: 'brake', supported: true),
+      VehicleSystem(
+          id: 'airbag', name: 'الوسائد الهوائية SRS', icon: 'shield', supported: true),
+    ];
   }
 
   @override
   Future<List<ScanReport>> quickScan() async {
-    await Future<void>.delayed(const Duration(seconds: 4));
-    return MockData.scanReports;
+    final codes = await readCodes();
+    final reports = <ScanReport>[];
+    for (final system in [
+      ('وحدة التحكم بالمحرك ECU', 'motor'),
+      ('المكابح ABS', 'brake'),
+      ('الوسائد الهوائية SRS', 'shield'),
+    ]) {
+      final list = codes[system.$1] ?? const <DtcCode>[];
+      reports.add(ScanReport(
+        system: system.$1,
+        icon: system.$2,
+        codes: list.length,
+        status: list.isEmpty ? ScanStatus.ok : ScanStatus.codes,
+      ));
+    }
+    return reports;
   }
 
   @override
   Future<Map<String, List<DtcCode>>> readCodes() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
-    return MockData.dtcBySystem;
+    if (!_ready) return const {};
+    final dtc = await _deviceService.controller!.readDtc();
+    final grouped = <String, List<DtcCode>>{};
+    for (final code in dtc) {
+      grouped.putIfAbsent(code.system, () => []).add(code);
+    }
+    return grouped;
   }
 
   @override
   Future<void> clearCodes() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!_ready) return;
+    await _deviceService.controller!.clearDtc();
+  }
+}
+
+class MockScanService implements ScanService {
+  final List<DtcCode> _sample = const [
+    DtcCode(
+      code: 'P0135',
+      description: 'عطل في سخان مستشعر الأكسجين - البنك 1',
+      system: 'وحدة التحكم بالمحرك ECU',
+      severity: DtcSeverity.medium,
+      frozen: false,
+    ),
+  ];
+
+  @override
+  Future<List<VehicleSystem>> readSystems() async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return const [
+      VehicleSystem(
+          id: 'ecu', name: 'وحدة التحكم بالمحرك ECU', icon: 'motor', supported: true),
+    ];
+  }
+
+  @override
+  Future<List<ScanReport>> quickScan() async {
+    await Future<void>.delayed(const Duration(seconds: 3));
+    return const [
+      ScanReport(
+          system: 'وحدة التحكم بالمحرك ECU',
+          icon: 'motor',
+          codes: 1,
+          status: ScanStatus.codes),
+    ];
+  }
+
+  @override
+  Future<Map<String, List<DtcCode>>> readCodes() async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return {'وحدة التحكم بالمحرك ECU': _sample};
+  }
+
+  @override
+  Future<void> clearCodes() async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
   }
 }
 

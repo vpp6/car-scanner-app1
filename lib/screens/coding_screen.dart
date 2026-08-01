@@ -52,6 +52,33 @@ class _CodingScreenState extends State<CodingScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'وحدة ELM327 لا تدعم البرمجة والتكويد الفعلي — هذه واجهة توضيحية فقط. البرمجة تتطلب جهاز فحص متخصصاً.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.warning,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(

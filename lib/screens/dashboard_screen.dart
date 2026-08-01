@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/device.dart';
+import '../services/obd/obd_models.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/battery_indicator.dart';
@@ -37,6 +38,9 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 8),
           if (state.isConnected && state.device != null)
             _batteryCard(state.device!, state.batteryLevel),
+          const SizedBox(height: 8),
+          if (state.isConnected && state.liveData.isNotEmpty)
+            _liveDataCard(state.liveData),
           const SizedBox(height: 8),
           SectionTitle(
             title: 'إجراءات سريعة',
@@ -133,7 +137,7 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'بطارية الجهاز',
+              device.batteryCapacityMah > 0 ? 'بطارية الجهاز' : 'جهد بطارية المركبة',
               style: TextStyle(
                 fontSize: 13,
                 color: batteryLevel <= 20
@@ -149,6 +153,93 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _liveDataCard(Map<ObdPid, double> data) {
+    final priority = [
+      ObdPid.rpm,
+      ObdPid.speed,
+      ObdPid.coolant,
+      ObdPid.throttle,
+      ObdPid.maf,
+      ObdPid.intake,
+      ObdPid.fuelLevel,
+      ObdPid.voltage,
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.leaderboard, color: AppColors.primary, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'البيانات الحية',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Spacer(),
+                Text(
+                  'مباشرة من السيارة',
+                  style: TextStyle(fontSize: 11, color: AppColors.textHint),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 2.4,
+              children: [
+                for (final pid in priority)
+                  if (data.containsKey(pid))
+                    _liveTile(pid, data[pid]!),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _liveTile(ObdPid pid, double value) {
+    final formatted = value.toStringAsFixed(pid == ObdPid.rpm ? 0 : 1);
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              pid.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ),
+          Text(
+            '$formatted ${pid.unit}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -170,17 +261,13 @@ class DashboardScreen extends StatelessWidget {
             icon: Icons.show_chart,
             label: 'الأوسيلوسكوب',
             color: AppColors.secondary,
-            onTap: state.isConnected
-                ? () => _goToTab(context, 2)
-                : () => _requireConnection(context),
+            onTap: () => _notSupported(context),
           ),
           _QuickAction(
             icon: Icons.memory,
             label: 'البرمجة',
             color: AppColors.warning,
-            onTap: state.isConnected
-                ? () => _goToTab(context, 3)
-                : () => _requireConnection(context),
+            onTap: () => _notSupported(context),
           ),
           _QuickAction(
             icon: Icons.error_outline,
@@ -350,6 +437,26 @@ class DashboardScreen extends StatelessWidget {
   void _requireConnection(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('قم بالاتصال بالجهاز أولاً')),
+    );
+  }
+
+  void _notSupported(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('غير مدعوم'),
+        content: const Text(
+          'وحدة ELM327 لا تدعم الأوسيلوسكوب أو البرمجة والتكويد.\n'
+          'هذه الميزات تتطلب جهاز فحص متخصص (مثل أجهزة CAN FD/DoIP).\n\n'
+          'البيانات الحية وقراءة/مسح الأكواد تعمل بشكل حقيقي.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
     );
   }
 }

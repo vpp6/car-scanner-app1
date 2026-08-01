@@ -5,7 +5,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Car Scanner App</string>
+	<string>فاحص برو X1</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>التطبيق يستخدم البلوتوث للاتصال بقارئ فحص OBD-II وقراءة بيانات السيارة.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>التطبيق يستخدم البلوتوث للاتصال بقارئ فحص OBD-II.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
