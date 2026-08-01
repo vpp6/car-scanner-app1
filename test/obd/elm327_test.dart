@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:car_scanner_app/services/obd/canfd_transport.dart';
 import 'package:car_scanner_app/services/obd/elm327.dart';
 import 'package:car_scanner_app/services/obd/obd_models.dart';
 import 'package:car_scanner_app/services/obd/obd_transport.dart';
@@ -24,6 +25,21 @@ void main() {
       expect(c.version, contains('ELM327'));
       expect(c.protocol, contains('ISO 15765-4'));
       expect(c.voltage, closeTo(12.6, 0.01));
+    });
+
+    test('detects CAN FD capability when enabled', () async {
+      final c = Elm327Controller(
+        MockCanFdTransport(),
+        enableCanFd: true,
+      );
+      await c.open(_mockAdapter);
+      expect(c.canFd, isTrue);
+    });
+
+    test('does not enable CAN FD when not requested', () async {
+      final c = Elm327Controller(MockCanFdTransport());
+      await c.open(_mockAdapter);
+      expect(c.canFd, isFalse);
     });
   });
 

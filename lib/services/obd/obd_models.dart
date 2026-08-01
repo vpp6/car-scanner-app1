@@ -1,4 +1,4 @@
-enum ObdTransportType { ble, classic, mock }
+enum ObdTransportType { ble, classic, canFd, doip, mock }
 
 class ObdAdapter {
   final String id;
@@ -6,12 +6,22 @@ class ObdAdapter {
   final int rssi;
   final ObdTransportType type;
 
+  /// DoIP gateway host (IP) - only used for [ObdTransportType.doip].
+  final String? host;
+
+  /// DoIP gateway port - only used for [ObdTransportType.doip].
+  final int? port;
+
   const ObdAdapter({
     required this.id,
     required this.name,
     this.rssi = 0,
     this.type = ObdTransportType.ble,
+    this.host,
+    this.port,
   });
+
+  bool get isMock => id.startsWith('mock');
 }
 
 enum ObdPid {

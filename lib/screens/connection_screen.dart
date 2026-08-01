@@ -21,6 +21,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   final List<ObdAdapter> _found = [];
   StreamSubscription<ObdAdapter>? _scanSub;
   ObdAdapter? _connecting;
+  final _doipHostController = TextEditingController();
 
   @override
   void initState() {
@@ -31,6 +32,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   @override
   void dispose() {
     _scanSub?.cancel();
+    _doipHostController.dispose();
     super.dispose();
   }
 
@@ -141,6 +143,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             const SizedBox(height: 8),
             ..._found.map(_deviceTile),
           ],
+          const SizedBox(height: 16),
+          _manualDoipCard(),
           const SizedBox(height: 20),
           const Card(
             child: Padding(
@@ -159,8 +163,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   SizedBox(height: 10),
                   Text(
                     '• شغّل السيارة أو ضع المفتاح على وضع الإشعال قبل المسح.\n'
-                    '• قارئ ELM327 يتصل عبر البلوتوث فقط (لا USB/WiFi).\n'
-                    '• على الآيفون يجب أن يكون القارئ من نوع BLE (بلوتوث 4.0/5.0).\n'
+                    '• قارئ ELM327 يتصل عبر البلوتوث (BLE للآيفون، أو كلاسيكي للأندرويد).\n'
+                    '• أجهزة CAN FD: محولات ELM/STN حديثة تدعم نقل أطول عبر أوامر ATAL/ATSDL.\n'
+                    '• أجهزة DoIP: تتصل عبر إيثرنت السيارة (ISO 13400) على المنفذ 13400.\n'
                     '• إن لم يظهر الجهاز، تحقق من إضاءة القارئ وقربه من الهاتف.',
                     style: TextStyle(
                       fontSize: 13,
@@ -173,6 +178,68 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _manualDoipCard() {
+    return Card(
+      color: AppColors.surfaceLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.lan_outlined, color: AppColors.primary, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'اتصال يدوي عبر DoIP (Ethernet)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'أدخل عنوان IP الخاص ببوابة التشخيص DoIP في السيارة',
+              style: TextStyle(fontSize: 12, color: AppColors.textHint),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _doipHostController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    decoration: const InputDecoration(
+                      hintText: 'مثال: 192.168.1.100',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _connecting == null ? _connectManualDoip : null,
+                  icon: const Icon(Icons.link, size: 18),
+                  label: const Text('اتصال'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -215,7 +282,15 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     final typeLabel = switch (adapter.type) {
       ObdTransportType.ble => 'بلوتوث BLE',
       ObdTransportType.classic => 'بلوتوث كلاسيكي',
+      ObdTransportType.canFd => 'CAN FD (بلوتوث)',
+      ObdTransportType.doip => 'DoIP (Ethernet)',
       ObdTransportType.mock => 'محاكاة (تجريبي)',
+    };
+    final icon = switch (adapter.type) {
+      ObdTransportType.doip => Icons.lan_outlined,
+      ObdTransportType.canFd => Icons.speed,
+      ObdTransportType.mock => Icons.science_outlined,
+      _ => Icons.bluetooth,
     };
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -229,7 +304,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             ? () => _connect(adapter)
             : null,
         leading: Icon(
-          isMock ? Icons.science_outlined : Icons.bluetooth,
+          icon,
           color: isMock ? AppColors.textHint : AppColors.primary,
         ),
         title: Text(
@@ -240,7 +315,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
           ),
         ),
         subtitle: Text(
-          '$typeLabel  •  الإشارة: ${adapter.rssi} dBm',
+          adapter.type == ObdTransportType.doip
+              ? '$typeLabel  •  ${adapter.host ?? ''}'
+              : '$typeLabel  •  الإشارة: ${adapter.rssi} dBm',
           style: const TextStyle(fontSize: 12, color: AppColors.textHint),
         ),
         trailing: _connecting?.id == adapter.id
@@ -252,6 +329,18 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             : const Icon(Icons.chevron_left, color: AppColors.textHint),
       ),
     );
+  }
+
+  Future<void> _connectManualDoip() async {
+    final host = _doipHostController.text.trim();
+    if (host.isEmpty) return;
+    await _connect(ObdAdapter(
+      id: 'doip:manual:$host',
+      name: 'بوابة DoIP - $host',
+      host: host,
+      port: 13400,
+      type: ObdTransportType.doip,
+    ));
   }
 
   Future<void> _connect(ObdAdapter adapter) async {

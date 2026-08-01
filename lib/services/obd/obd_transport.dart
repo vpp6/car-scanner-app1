@@ -332,6 +332,11 @@ class MockObdTransport implements ObdTransport {
     '0902': '014:49 02 01 4C 46 56 33 41 32 33 4B',
   };
 
+  /// Injects/overrides a canned response (used by CAN FD and test scenarios).
+  void addMockResponse(String command, String response) {
+    _responses[command] = response;
+  }
+
   @override
   Stream<ObdAdapter> scan() async* {
     await Future<void>.delayed(const Duration(milliseconds: 500));

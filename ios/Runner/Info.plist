@@ -10,6 +10,12 @@
 	<string>التطبيق يستخدم البلوتوث للاتصال بقارئ فحص OBD-II وقراءة بيانات السيارة.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>التطبيق يستخدم البلوتوث للاتصال بقارئ فحص OBD-II.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>التطبيق يستخدم الشبكة المحلية للاتصال ببوابة تشخيص DoIP في السيارة.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_doip._tcp</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

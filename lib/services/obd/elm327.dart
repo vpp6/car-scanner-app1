@@ -1,21 +1,31 @@
 import 'dart:async';
 
 import '../../models/dtc.dart';
+import 'obd_controller.dart';
+import 'obd_helpers.dart';
 import 'obd_models.dart';
 import 'obd_transport.dart';
 
-class Elm327Controller {
-  Elm327Controller(this._transport);
+class Elm327Controller implements ObdController {
+  Elm327Controller(this._transport, {bool enableCanFd = false})
+      : _enableCanFd = enableCanFd;
 
   final ObdTransport _transport;
+  final bool _enableCanFd;
   bool _connected = false;
+  bool _canFd = false;
   String _version = '';
   String _protocol = '';
   double _voltage = 0;
 
+  @override
   bool get connected => _connected;
+  bool get canFd => _canFd;
+  @override
   String get version => _version;
+  @override
   String get protocol => _protocol;
+  @override
   double get voltage => _voltage;
 
   Future<void> init() async {
@@ -28,17 +38,30 @@ class Elm327Controller {
     await _command('ATH0');
     await _command('ATS1');
     await _command('ATSP0');
+    if (_enableCanFd) {
+      await _enableCanFdMode();
+    }
     _protocol = await _command('ATDP') ?? '';
     _voltage = await readVoltage();
   }
 
+  Future<void> _enableCanFdMode() async {
+    final allowLong = await _command('ATAL');
+    _canFd = (allowLong ?? '').toUpperCase().contains('OK');
+    if (_canFd) {
+      await _command('ATSDL');
+    }
+  }
+
   ObdAdapter? _currentAdapter;
 
+  @override
   Future<void> open(ObdAdapter adapter) async {
     _currentAdapter = adapter;
     await init();
   }
 
+  @override
   Future<void> close() async {
     _connected = false;
     await _transport.close();
@@ -72,6 +95,7 @@ class Elm327Controller {
     return lines.join(' ');
   }
 
+  @override
   Future<double> readVoltage() async {
     final raw = await _command('ATRV');
     final match = RegExp(r'([0-9]+\.?[0-9]*)').firstMatch(raw ?? '');
@@ -81,6 +105,7 @@ class Elm327Controller {
     return _voltage;
   }
 
+  @override
   Future<double?> readPid(ObdPid pid) async {
     if (pid == ObdPid.voltage) return readVoltage();
     final cmd = '01${pid.code.toRadixString(16).padLeft(2, '0').toUpperCase()}';
@@ -95,35 +120,12 @@ class Elm327Controller {
     );
     final m = re.firstMatch(cleaned);
     if (m == null) return null;
-    final bytes = m
-        .group(1)!
-        .split(RegExp(r'\s+'))
-        .where((t) => RegExp(r'^[0-9A-Fa-f]+$').hasMatch(t))
-        .map((t) => int.parse(t, radix: 16))
-        .toList();
+    final bytes = parseHexBytes(m.group(1)!);
     if (bytes.isEmpty) return null;
-    return _applyFormula(pid, bytes);
+    return applyPidFormula(pid, bytes);
   }
 
-  double _applyFormula(ObdPid pid, List<int> b) {
-    switch (pid) {
-      case ObdPid.coolant:
-      case ObdPid.intake:
-        return (b[0] - 40).toDouble();
-      case ObdPid.rpm:
-        return ((b[0] << 8) + b[1]) / 4;
-      case ObdPid.speed:
-        return b[0].toDouble();
-      case ObdPid.maf:
-        return ((b[0] << 8) + b[1]) / 100;
-      case ObdPid.throttle:
-      case ObdPid.fuelLevel:
-        return b[0] * 100 / 255;
-      case ObdPid.voltage:
-        return b[0].toDouble();
-    }
-  }
-
+  @override
   Future<List<DtcCode>> readDtc() async {
     final codes = <DtcCode>{};
     final raw = await _command('03');
@@ -139,12 +141,7 @@ class Elm327Controller {
     final re = RegExp(r'43\s+[0-9A-Fa-f\s]+');
     final m = re.firstMatch(cleaned);
     if (m == null) return [];
-    final tokens = m
-        .group(0)!
-        .split(RegExp(r'\s+'))
-        .where((t) => RegExp(r'^[0-9A-Fa-f]+$').hasMatch(t))
-        .map((t) => int.parse(t, radix: 16))
-        .toList();
+    final tokens = parseHexBytes(m.group(0)!);
     if (tokens.isEmpty) return [];
     final payload = tokens.sublist(1);
     final result = <DtcCode>[];
@@ -152,34 +149,24 @@ class Elm327Controller {
       final b1 = payload[i];
       final b2 = payload[i + 1];
       if (b1 == 0 && b2 == 0) continue;
-      final prefix = switch (b1 >> 6) {
-        0 => 'P',
-        1 => 'C',
-        2 => 'B',
-        _ => 'U',
-      };
-      final d2 = (b1 >> 4) & 0x03;
-      final d3 = b1 & 0x0F;
-      final d4 = b2 >> 4;
-      final d5 = b2 & 0x0F;
-      final code = '$prefix$d2${d3.toRadixString(16).toUpperCase()}'
-          '${d4.toRadixString(16).toUpperCase()}'
-          '${d5.toRadixString(16).toUpperCase()}';
+      final code = dtcCodeFromBytes(b1, b2);
       result.add(DtcCode(
         code: code,
-        description: _describe(code),
-        system: _systemFor(code),
-        severity: _severityFor(code),
+        description: dtcDescription(code),
+        system: dtcSystem(code),
+        severity: dtcSeverity(code),
         frozen: false,
       ));
     }
     return result;
   }
 
+  @override
   Future<void> clearDtc() async {
     await _command('04');
   }
 
+  @override
   Future<String?> readVin() async {
     final raw = await _command('0902');
     return _parseVin(raw ?? '');
@@ -213,6 +200,7 @@ class Elm327Controller {
     return vin.isEmpty ? null : vin;
   }
 
+  @override
   Stream<Map<ObdPid, double>> liveDataStream() async* {
     while (_connected) {
       final data = <ObdPid, double>{};
@@ -226,41 +214,5 @@ class Elm327Controller {
       yield data;
       await Future<void>.delayed(const Duration(milliseconds: 120));
     }
-  }
-
-  String _systemFor(String code) {
-    if (code.startsWith('P')) return 'وحدة التحكم بالمحرك ECU';
-    if (code.startsWith('C')) return 'الشاسيه والمكابح ABS';
-    if (code.startsWith('B')) return 'جسم السيارة BCM';
-    return 'الاتصالات والشبكة';
-  }
-
-  DtcSeverity _severityFor(String code) {
-    if (code.startsWith('U')) return DtcSeverity.high;
-    return DtcSeverity.medium;
-  }
-
-  String _describe(String code) {
-    final known = {
-      'P0171': 'الخليط فقير جداً - البنك 1',
-      'P0174': 'الخليط فقير جداً - البنك 2',
-      'P0300': 'فقدان احتراق عشوائي/متعدد الأسطوانات',
-      'P0301': 'فقدان احتراق - الأسطوانة 1',
-      'P0302': 'فقدان احتراق - الأسطوانة 2',
-      'P0303': 'فقدان احتراق - الأسطوانة 3',
-      'P0304': 'فقدان احتراق - الأسطوانة 4',
-      'P0420': 'كفاءة المحول الحفاز أقل من الحد - البنك 1',
-      'P0430': 'كفاءة المحول الحفاز أقل من الحد - البنك 2',
-      'P0442': 'تسرب صغير في نظام الأبخرة EVAP',
-      'P0455': 'تسرب كبير في نظام الأبخرة EVAP',
-      'P0500': 'عطل في مستشعر سرعة السيارة',
-      'P0505': 'عطل في نظام التحكم بالخمول',
-      'P0700': 'عطل في نظام التحكم بناقل الحركة',
-      'P0101': 'نطاق مستشعر تدفق الهواء MAF غير طبيعي',
-      'P0113': 'إشارة مرتفعة لمستشعر حرارة الهواء',
-      'P0128': 'حرارة المحرك أقل من المطلوب للتشغيل',
-      'P0135': 'عطل في سخان مستشعر الأكسجين - البنك 1',
-    };
-    return known[code] ?? 'رمز خطأ قرأه التطبيق من وحدة التحكم الإلكترونية';
   }
 }

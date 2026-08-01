@@ -4,7 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../models/device.dart';
+import 'obd/canfd_transport.dart';
+import 'obd/doip_controller.dart';
+import 'obd/doip_transport.dart';
 import 'obd/elm327.dart';
+import 'obd/obd_controller.dart';
 import 'obd/obd_models.dart';
 import 'obd/obd_transport.dart';
 
@@ -14,7 +18,7 @@ abstract class DeviceService {
   Future<DeviceInfo> connectToAdapter(ObdAdapter adapter);
   Future<void> disconnect();
   Stream<int> batteryStream();
-  Elm327Controller? get controller;
+  ObdController? get controller;
   void dispose();
 }
 
@@ -23,14 +27,13 @@ class Elm327DeviceService implements DeviceService {
       : _enableMock = enableMock;
 
   final bool _enableMock;
-  Elm327Controller? _controller;
-  ObdTransport? _activeTransport;
+  ObdController? _controller;
   final _batteryController = StreamController<int>.broadcast();
   Timer? _voltageTimer;
   int _batteryLevel = 0;
 
   @override
-  Elm327Controller? get controller => _controller;
+  ObdController? get controller => _controller;
 
   @override
   Stream<ObdAdapter> scanDevices() {
@@ -38,12 +41,16 @@ class Elm327DeviceService implements DeviceService {
 
     StreamSubscription<ObdAdapter>? classicSub;
     StreamSubscription<ObdAdapter>? mockSub;
+    StreamSubscription<ObdAdapter>? mockFdSub;
+    StreamSubscription<ObdAdapter>? mockDoipSub;
     bool bleDone = false;
     void closeStreamIfDone() {
       if (bleDone) return;
       bleDone = true;
       classicSub?.cancel();
       mockSub?.cancel();
+      mockFdSub?.cancel();
+      mockDoipSub?.cancel();
       if (!merged.isClosed) merged.close();
     }
 
@@ -65,8 +72,15 @@ class Elm327DeviceService implements DeviceService {
     }
 
     if (_enableMock) {
-      final mock = MockObdTransport();
-      mockSub = mock.scan().listen(
+      mockSub = MockObdTransport().scan().listen(
+            (adapter) => merged.add(adapter),
+            onError: (e) => merged.addError(e),
+          );
+      mockFdSub = MockCanFdTransport().scan().listen(
+            (adapter) => merged.add(adapter),
+            onError: (e) => merged.addError(e),
+          );
+      mockDoipSub = MockDoipClient().scan().listen(
             (adapter) => merged.add(adapter),
             onError: (e) => merged.addError(e),
           );
@@ -75,6 +89,8 @@ class Elm327DeviceService implements DeviceService {
     merged.onCancel = () {
       classicSub?.cancel();
       mockSub?.cancel();
+      mockFdSub?.cancel();
+      mockDoipSub?.cancel();
       FlutterBluePlus.stopScan();
     };
 
@@ -93,11 +109,17 @@ class Elm327DeviceService implements DeviceService {
   Future<DeviceInfo> connectToAdapter(ObdAdapter adapter) async {
     await disconnect();
 
-    _activeTransport = _transportFor(adapter.type);
-    _controller = Elm327Controller(_activeTransport!);
+    if (adapter.type == ObdTransportType.doip) {
+      return _connectDoip(adapter);
+    }
+
+    final transport = _transportFor(adapter);
+    final enableCanFd = adapter.type == ObdTransportType.canFd;
+    _controller = Elm327Controller(transport, enableCanFd: enableCanFd);
     await _controller!.open(adapter);
 
-    final voltage = _controller!.voltage;
+    final elm = _controller as Elm327Controller;
+    final voltage = elm.voltage;
     _batteryLevel = _scaleVoltage(voltage);
 
     _voltageTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
@@ -110,15 +132,16 @@ class Elm327DeviceService implements DeviceService {
     });
 
     final protocol = _controller!.protocol;
+    final canFd = elm.canFd || protocol.contains('FD');
     return DeviceInfo(
       name: adapter.name,
-      model: 'ELM327',
+      model: enableCanFd && canFd ? 'ELM327 STN (CAN FD)' : 'ELM327',
       serial: adapter.id,
       firmware: _controller!.version,
       batteryLevel: _batteryLevel,
       batteryCapacityMah: 0,
       charging: false,
-      canFdSupported: protocol.contains('FD'),
+      canFdSupported: canFd,
       doipSupported: false,
       oscilloscope4ch: false,
       softwareVersion: _controller!.version,
@@ -126,8 +149,32 @@ class Elm327DeviceService implements DeviceService {
     );
   }
 
-  ObdTransport _transportFor(ObdTransportType type) {
-    switch (type) {
+  Future<DeviceInfo> _connectDoip(ObdAdapter adapter) async {
+    final client = adapter.isMock ? MockDoipClient() : DoipTransport();
+    _controller = DoipController(client);
+    await _controller!.open(adapter);
+    _batteryLevel = 100;
+    if (!_batteryController.isClosed) {
+      _batteryController.add(_batteryLevel);
+    }
+    return DeviceInfo(
+      name: adapter.name,
+      model: 'DoIP (ISO 13400-2)',
+      serial: adapter.id,
+      firmware: 'DoIP / UDS',
+      batteryLevel: 100,
+      batteryCapacityMah: 0,
+      charging: false,
+      canFdSupported: false,
+      doipSupported: true,
+      oscilloscope4ch: false,
+      softwareVersion: 'DoIP 1.0',
+      connectionMethod: ConnectionMethod.wifi,
+    );
+  }
+
+  ObdTransport _transportFor(ObdAdapter adapter) {
+    switch (adapter.type) {
       case ObdTransportType.ble:
         return BleObdTransport();
       case ObdTransportType.classic:
@@ -135,8 +182,12 @@ class Elm327DeviceService implements DeviceService {
           return ClassicObdTransport();
         }
         throw StateError('البلوتوث الكلاسيكي غير مدعوم على هذا النظام');
+      case ObdTransportType.canFd:
+        return adapter.isMock ? MockCanFdTransport() : CanFdObdTransport();
       case ObdTransportType.mock:
         return MockObdTransport();
+      case ObdTransportType.doip:
+        throw StateError('DoIP يُدار عبر مسار منفصل');
     }
   }
 
@@ -152,7 +203,6 @@ class Elm327DeviceService implements DeviceService {
     _voltageTimer = null;
     await _controller?.close();
     _controller = null;
-    _activeTransport = null;
   }
 
   @override
