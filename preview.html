@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1215">
+<title>فاحص برو X1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1215; --surface:#141E23; --surface2:#1C2A31; --border:#26363E;
+  --text:#E6F2F4; --text2:#8FA3AB; --text3:#5B6B72;
+  --primary:#00C2A8; --secondary:#4C8DFF; --warning:#FFB020; --danger:#FF5252; --success:#4CAF50;
+  --ch1:#FFF200; --ch2:#00E5FF; --ch3:#FF6D6D; --ch4:#69F0AE;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Cairo',Tahoma,sans-serif;overflow:hidden}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+.screen{position:fixed;inset:0;display:none;flex-direction:column}
+.screen.active{display:flex}
+.hidden{display:none!important}
+
+/* ===== Splash ===== */
+#screen-splash{align-items:center;justify-content:center;background:var(--bg)}
+.splash-logo{width:96px;height:96px;background:var(--primary);border-radius:28px;display:flex;align-items:center;justify-content:center;font-size:48px;color:#000;margin-bottom:22px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,194,168,.35)}50%{box-shadow:0 0 0 18px rgba(0,194,168,0)}}
+.splash-title{font-size:26px;font-weight:900}
+.splash-sub{font-size:13px;color:var(--text2);margin-top:8px}
+.spinner{width:28px;height:28px;border:3px solid var(--surface2);border-top-color:var(--primary);border-radius:50%;margin-top:44px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== App shell ===== */
+#screen-main{background:var(--bg)}
+.topbar{height:56px;display:flex;align-items:center;padding:0 8px 0 16px;gap:8px;flex-shrink:0}
+.topbar .title{font-size:17px;font-weight:800;flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--text3)}
+.chip.on{background:rgba(76,175,80,.14);color:var(--success);border:1px solid rgba(76,175,80,.5)}
+.chip.on .dot{background:var(--success)}
+.chip.off{background:rgba(91,107,114,.14);color:var(--text3);border:1px solid rgba(91,107,114,.4)}
+.chip.off .dot{background:var(--text3)}
+.chip.busy{background:rgba(255,176,32,.14);color:var(--warning);border:1px solid rgba(255,176,32,.5)}
+.chip.busy .dot{background:var(--warning)}
+
+#pages{flex:1;overflow-y:auto;padding-bottom:76px}
+.page{display:none;padding:14px}
+.page.active{display:block}
+
+/* ===== Cards ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px}
+.card-row{display:flex;align-items:center;gap:14px}
+.card .label{font-size:13px;color:var(--text2)}
+.card .value{font-size:15px;font-weight:700}
+.section-title{font-size:15px;font-weight:800;margin:18px 2px 10px}
+.section-title small{color:var(--text2);font-size:12px;font-weight:600}
+
+/* ===== Device / vehicle ===== */
+.icon-tile{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.t-prime{background:rgba(0,194,168,.15);color:var(--primary)}
+.t-blue{background:rgba(76,141,255,.15);color:var(--secondary)}
+.btn-round{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.btn-round.fill{background:var(--primary);color:#000}
+.btn-round.ghost{background:var(--surface2);color:var(--text3)}
+
+/* ===== Quick actions ===== */
+.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qa{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.qa .ic{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px}
+.qa span{font-size:11px;font-weight:700}
+
+/* ===== Battery ===== */
+.batt-center{display:flex;flex-direction:column;align-items:center}
+.batt-num{font-size:34px;font-weight:900;color:var(--success)}
+.batt-mah{font-size:13px;color:var(--text2)}
+.batt-bar{width:120px;height:14px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:2px;margin-top:10px}
+.batt-fill{height:100%;background:var(--success);border-radius:5px}
+
+/* ===== Specs ===== */
+.spec{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--border)}
+.spec:last-child{border-bottom:none}
+.spec .ic{width:26px;font-size:20px}
+.spec .name{flex:1;font-size:14px}
+.spec .val{font-size:12.5px;color:var(--text2);font-weight:700}
+
+/* ===== Buttons ===== */
+.btn{width:100%;padding:14px;border-radius:14px;font-size:15px;font-weight:800;text-align:center}
+.btn-primary{background:var(--primary);color:#000}
+.btn-outline{background:transparent;border:1.5px solid var(--primary);color:var(--primary)}
+.btn-danger{background:var(--danger);color:#000}
+.btn:disabled{opacity:.5}
+.btn-sm{width:auto;padding:10px 16px;font-size:13px}
+
+/* ===== Method tiles ===== */
+.method{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);margin-bottom:10px}
+.method .ic{width:40px;height:40px;border-radius:12px;background:rgba(0,194,168,.15);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px}
+.method .t{font-weight:700;font-size:14px}
+.method .s{font-size:12px;color:var(--text3)}
+.method .go{margin-inline-start:auto;color:var(--text3)}
+
+/* ===== Chips (vehicle) ===== */
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px}
+.cchip{padding:8px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text)}
+.cchip.sel{background:var(--primary);color:#000;border-color:var(--primary)}
+.step{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.step .n{width:24px;height:24px;border-radius:50%;background:var(--primary);color:#000;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.step span{font-weight:800;font-size:15px}
+
+/* ===== Scan progress ===== */
+.scan-wrap{display:flex;flex-direction:column;align-items:center;padding-top:60px}
+.ring{width:140px;height:140px;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900}
+
+/* ===== Systems / DTC ===== */
+.sys{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px}
+.sys .ic{width:34px;height:34px;border-radius:10px;background:rgba(0,194,168,.14);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:17px}
+.sys .name{flex:1;font-size:14px}
+.sys .ok{color:var(--success)}
+.dtc{border-radius:14px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;overflow:hidden}
+.dtc-head{display:flex;align-items:center}
+.dtc-bar{width:6px;align-self:stretch;background:var(--warning)}
+.dtc-body{padding:12px 12px 12px 0;flex:1}
+.dtc-code{font-size:17px;font-weight:900;color:var(--warning)}
+.dtc-desc{font-size:13px;color:var(--text2);margin-top:3px}
+.dtc-info{display:flex;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--text2)}
+.tag{font-size:10px;padding:2px 7px;border-radius:6px;background:var(--surface2);color:var(--text3)}
+
+/* ===== Bottom nav ===== */
+#bottomnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;padding:6px 4px calc(8px + env(safe-area-inset-bottom));z-index:50}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:12px;font-size:10px;color:var(--text3);font-weight:600}
+.nav-item .ic{font-size:21px}
+.nav-item.on{color:var(--primary);font-weight:800}
+.nav-item.on .pill{background:rgba(0,194,168,.16);border-radius:12px;padding:2px 14px}
+
+/* ===== Drawer ===== */
+#drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s}
+#drawer-overlay.open{opacity:1;pointer-events:auto}
+#drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:280px;max-width:82vw;background:var(--surface);z-index:95;transform:translateX(-100%);transition:transform .28s ease;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+body.rtl-drawer #drawer{transform:translateX(100%)}
+#drawer.open{transform:translateX(0)!important}
+.drawer-head{display:flex;align-items:center;gap:12px;padding:22px 18px 16px;border-bottom:1px solid var(--border)}
+.drawer-item{display:flex;align-items:center;gap:14px;padding:13px 20px;margin:2px 10px;border-radius:12px;font-size:14px;font-weight:600;color:var(--text2)}
+.drawer-item.on{background:rgba(0,194,168,.16);color:var(--primary)}
+.drawer-item .ic{font-size:21px}
+.drawer-foot{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text2)}
+
+/* ===== Scope ===== */
+#scope-canvas{width:100%;height:44vh;background:#05090A;border:1px solid var(--border);border-radius:16px;display:block}
+.legend{display:flex;gap:6px}
+.legend i{width:12px;height:12px;border-radius:50%}
+.scope-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.scope-btn{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.scope-btn .ic{font-size:20px}
+.scope-run{color:var(--success)} .scope-run .ic{color:var(--success)}
+.scope-stop{color:var(--danger)} .scope-stop .ic{color:var(--danger)}
+
+/* ===== Coding ===== */
+.code-banner{background:linear-gradient(135deg,#12343B,#0B2026);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.code-banner .ic{font-size:36px;color:var(--primary)}
+.code-module{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px}
+.code-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.badge{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700}
+.badge.on{background:rgba(0,194,168,.15);color:var(--primary)}
+.badge.off{background:var(--surface2);color:var(--text2)}
+.code-meta{font-size:12px;color:var(--text3)}
+.code-name{font-size:15px;font-weight:800;margin-bottom:5px}
+.code-desc{font-size:13px;color:var(--text2);margin-bottom:12px}
+.pbar{height:8px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.pbar>div{height:100%;background:var(--secondary);width:0;transition:width .4s}
+.pstate{font-size:12px;color:var(--secondary);font-weight:700;margin-top:6px}
+.done-msg{display:flex;align-items:center;gap:8px;color:var(--success);font-weight:700;font-size:14px}
+
+/* ===== Settings ===== */
+.switch{width:46px;height:26px;border-radius:13px;background:var(--surface2);position:relative;transition:background .2s;flex-shrink:0}
+.switch.on{background:var(--primary)}
+.switch::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:inset-inline-start .2s}
+.switch.on::after{inset-inline-start:23px;background:#000}
+
+/* ===== Toast / dialog ===== */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);color:var(--text);padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:.3s;z-index:120;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:110;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+#dialog-overlay.open{opacity:1;pointer-events:auto}
+.dialog{width:100%;max-width:480px;background:var(--surface);border-radius:24px 24px 0 0;padding:22px;transform:translateY(30px);transition:transform .3s}
+#dialog-overlay.open .dialog{transform:translateY(0)}
+.dialog h3{font-size:18px;font-weight:900;margin-bottom:6px}
+.dialog .muted{color:var(--text2);font-size:13px}
+.dialog .row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-bottom:1px solid var(--border)}
+.dialog .row:last-of-type{border-bottom:none}
+.dialog .row span:first-child{color:var(--text2)}
+</style>
+</head>
+<body class="rtl-drawer">
+
+<!-- ============ SPLASH ============ -->
+<div id="screen-splash" class="screen active">
+  <div class="splash-logo">🚗</div>
+  <div class="splash-title">فاحص برو X1</div>
+  <div class="splash-sub">فحص الأنظمة • الأوسيلوسكوب • البرمجة والتكويد</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- ============ MAIN SHELL ============ -->
+<div id="screen-main" class="screen">
+  <div class="topbar">
+    <button class="btn-round ghost" onclick="openDrawer()" aria-label="القائمة">☰</button>
+    <div class="title" id="topbar-title">لوحة التحكم</div>
+    <div id="conn-chip" class="chip off"><span class="dot"></span><span>غير متصل</span></div>
+  </div>
+
+  <div id="pages">
+
+    <!-- HOME -->
+    <div id="page-home" class="page active">
+      <div class="card card-row" onclick="state.connected?null:goConnect()" style="cursor:pointer">
+        <div class="icon-tile t-prime">🔧</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:17px">فاحص برو X1</div>
+          <div class="label" id="device-sub">اضغط للاتصال بالجهاز</div>
+        </div>
+        <button class="btn-round" id="connect-btn" onclick="toggleConn()">🔗</button>
+      </div>
+
+      <div class="card" id="battery-card" style="display:none;text-align:center">
+        <div class="label" style="margin-bottom:8px">بطارية الجهاز</div>
+        <div class="batt-center">
+          <div><span class="batt-num" id="batt-pct">87%</span></div>
+          <div class="batt-mah">18600 mAh</div>
+          <div class="batt-bar"><div class="batt-fill" id="batt-fill" style="width:87%"></div></div>
+        </div>
+      </div>
+
+      <div class="section-title">إجراءات سريعة <small id="qa-status">تتطلب الاتصال</small></div>
+      <div class="qa-grid">
+        <button class="qa" onclick="reqConn(1)"><div class="ic" style="background:rgba(0,194,168,.14);color:var(--primary)">🩺</div><span>فحص شامل</span></button>
+        <button class="qa" onclick="reqConn(2)"><div class="ic" style="background:rgba(76,141,255,.14);color:var(--secondary)">📈</div><span>الأوسيلوسكوب</span></button>
+        <button class="qa" onclick="reqConn(3)"><div class="ic" style="background:rgba(255,176,32,.14);color:var(--warning)">💾</div><span>البرمجة</span></button>
+        <button class="qa" onclick="reqConn(1)"><div class="ic" style="background:rgba(255,82,82,.14);color:var(--danger)">⚠️</div><span>كود فوري</span></button>
+      </div>
+
+      <div class="section-title">المركبة المتصلة</div>
+      <div class="card" id="vehicle-card" onclick="goVehicle()" style="cursor:pointer">
+        <div class="card-row">
+          <div class="icon-tile t-blue">🚘</div>
+          <div style="flex:1">
+            <div id="vehicle-name" style="font-weight:800;font-size:15px">لم يتم تحديد مركبة</div>
+            <div class="label" id="vehicle-sub">حدد المركبة لبدء فحص الأنظمة</div>
+          </div>
+          <div id="vehicle-plate" style="color:var(--primary);font-weight:700;font-size:14px"></div>
+        </div>
+      </div>
+
+      <div class="section-title">مواصفات الجهاز</div>
+      <div class="card" id="specs-card">
+        <div class="spec"><div class="ic" style="color:var(--success)">🔋</div><div class="name">البطارية</div><div class="val">18600 mAh</div></div>
+        <div class="spec"><div class="ic" style="color:var(--primary)">🛰️</div><div class="name">CAN FD</div><div class="val">مدعوم</div></div>
+        <div class="spec"><div class="ic" style="color:var(--primary)">🌐</div><div class="name">DoIP</div><div class="val">مدعوم (عبر Ethernet)</div></div>
+        <div class="spec"><div class="ic" style="color:var(--secondary)">📊</div><div class="name">الأوسيلوسكوب</div><div class="val">4 قنوات ملونة</div></div>
+      </div>
+    </div>
+
+    <!-- SCAN -->
+    <div id="page-scan" class="page">
+      <div class="card-row" style="align-items:flex-start">
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:15px" id="scan-vehicle">لم يتم اختيار مركبة</div>
+          <div class="label">دعم أكثر من 200 موديل</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="scan-btn" onclick="startScan()">▶ فحص شامل</button>
+      </div>
+      <div id="scan-empty" class="card" style="text-align:center;padding:40px">
+        <div style="font-size:44px">🚘</div>
+        <div class="label" style="margin:10px 0">اختر مركبة لبدء الفحص</div>
+        <button class="btn btn-outline btn-sm" onclick="goVehicle()">اختيار مركبة</button>
+      </div>
+      <div id="scan-progress" class="hidden" style="text-align:center;padding:40px 0">
+        <div class="ring">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="60" fill="none" stroke="#1C2A31" stroke-width="10"/>
+            <circle id="ring-fg" cx="70" cy="70" r="60" fill="none" stroke="#00C2A8" stroke-width="10" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"/>
+          </svg>
+          <div class="pct" id="scan-pct">0%</div>
+        </div>
+        <div class="label" style="margin-top:18px">جاري فحص جميع الأنظمة عبر CAN FD...</div>
+      </div>
+      <div id="scan-systems" class="hidden"></div>
+      <div id="scan-codes" class="hidden">
+        <div style="display:flex;align-items:center;gap:8px;margin:14px 2px">
+          <span style="color:var(--danger);font-size:17px">⚠️</span>
+          <span id="codes-count" style="font-weight:800;color:var(--danger)"></span>
+          <button class="btn btn-danger btn-sm" style="margin-inline-start:auto;width:auto" onclick="clearCodes()">🗑 مسح الأكواد</button>
+        </div>
+        <div id="codes-list"></div>
+      </div>
+    </div>
+
+    <!-- SCOPE -->
+    <div id="page-scope" class="page">
+      <canvas id="scope-canvas" width="600" height="420"></canvas>
+      <div class="scope-controls">
+        <button class="scope-btn scope-run" id="scope-toggle" onclick="toggleScope()"><span class="ic">▶</span><span>بدء / إيقاف</span></button>
+        <button class="scope-btn"><span class="ic" style="color:var(--secondary)">⇅</span><span>الجهد 2V/div</span></button>
+        <button class="scope-btn"><span class="ic" style="color:var(--warning)">⧗</span><span>الزمن 1s/div</span></button>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--text3);margin-top:12px" id="scope-status">قياس مباشر بجودة 4 قنوات</div>
+    </div>
+
+    <!-- CODING -->
+    <div id="page-coding" class="page">
+      <div class="code-banner">
+        <div class="ic">⬇️</div>
+        <div>
+          <div style="font-weight:800;font-size:15px">برمجة الوحدات عبر الإنترنت</div>
+          <div class="label" id="coding-status">اتصل بالجهاز لبدء البرمجة</div>
+        </div>
+      </div>
+      <div class="section-title">البرمجيات المتاحة لمركبتك</div>
+      <div id="modules"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="section-title">الجهاز</div>
+      <div class="card">
+        <div class="spec"><div class="ic" style="color:var(--primary)">🔧</div><div class="name">الجهاز</div><div class="val">فاحص برو X1</div></div>
+        <div class="spec"><div class="ic" style="color:var(--text3)">🎫</div><div class="name">الرقم التسلسلي</div><div class="val">FPX100000123</div></div>
+        <div class="spec"><div class="ic" style="color:var(--text3)">💿</div><div class="name">البرنامج الثابت</div><div class="val">v3.2.1</div></div>
+        <div class="spec"><div class="ic" style="color:var(--warning)">⚡</div><div class="name">شحن الجهاز</div><div class="val" id="set-charging">متوقف</div></div>
+      </div>
+
+      <div class="section-title">المركبة والاتصال</div>
+      <div class="card">
+        <div class="spec" onclick="goVehicle()" style="cursor:pointer">
+          <div class="ic" style="color:var(--secondary)">🚘</div><div class="name">المركبة</div><div class="val" id="set-vehicle">غير محددة</div>
+        </div>
+        <div class="spec" onclick="goConnect()" style="cursor:pointer">
+          <div class="ic" style="color:var(--primary)">🔗</div><div class="name">الجهاز</div><div class="val" id="set-device">غير متصل</div>
+        </div>
+      </div>
+
+      <div class="section-title">البروتوكولات المدعومة</div>
+      <div class="card">
+        <div class="spec"><div class="ic" style="color:var(--success)">✔️</div><div class="name">CAN</div><div class="val">ناقل البيانات التقليدي</div></div>
+        <div class="spec"><div class="ic" style="color:var(--success)">✔️</div><div class="name">CAN FD</div><div class="val">ناقل عالي السرعة</div></div>
+        <div class="spec"><div class="ic" style="color:var(--success)">✔️</div><div class="name">DoIP</div><div class="val">عبر الإيثرنت</div></div>
+        <div class="spec"><div class="ic" style="color:var(--success)">✔️</div><div class="name">OBD-II / EOBD</div><div class="val">معايير التشخيص العالمية</div></div>
+      </div>
+
+      <div class="section-title">عام</div>
+      <div class="card">
+        <div class="spec"><div class="ic" style="color:var(--text3)">🔔</div><div class="name">إشعارات نهاية الفحص</div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="spec"><div class="ic" style="color:var(--text3)">☁️</div><div class="name">تحديث تلقائي لقاعدة البيانات</div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="spec" onclick="showAbout()" style="cursor:pointer"><div class="ic" style="color:var(--text3)">ℹ️</div><div class="name">حول التطبيق</div><div class="val">v2.4.0</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONNECT SCREEN ============ -->
+<div id="screen-connect" class="screen" style="z-index:60;background:var(--bg)">
+  <div class="topbar"><button class="btn-round ghost" onclick="closeConnect()">✕</button><div class="title">الاتصال بالجهاز</div></div>
+  <div id="pages" style="padding-bottom:0">
+    <div class="card" style="text-align:center;padding:28px">
+      <div style="font-size:52px">🔧</div>
+      <div style="font-size:20px;font-weight:900;margin-top:10px">فاحص برو X1</div>
+      <div class="label" style="margin-top:4px">اتصل بالجهاز عبر بلوتوث أو USB أو WiFi</div>
+      <div id="connecting" class="hidden" style="margin-top:20px">
+        <div class="spinner" style="margin:0 auto"></div>
+        <div class="label" style="margin-top:14px">جاري إنشاء الاتصال بالجهاز...</div>
+      </div>
+      <div id="method-list" style="margin-top:20px;text-align:start">
+        <div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:12px">اختر طريقة الاتصال</div>
+        <div class="method" onclick="connect('بلوتوث')"><div class="ic">📶</div><div><div class="t">البلوتوث</div><div class="s">اتصال لاسلكي سريع</div></div><div class="go">‹</div></div>
+        <div class="method" onclick="connect('كابل USB')"><div class="ic">🔌</div><div><div class="t">كابل USB</div><div class="s">أسرع نقل بيانات</div></div><div class="go">‹</div></div>
+        <div class="method" onclick="connect('WiFi')"><div class="ic">📡</div><div><div class="t">WiFi</div><div class="s">لأعمال البرمجة والفحوصات الثقيلة</div></div><div class="go">‹</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VEHICLE SELECT ============ -->
+<div id="screen-vehicle" class="screen" style="z-index:60;background:var(--bg)">
+  <div class="topbar"><button class="btn-round ghost" onclick="closeVehicle()">✕</button><div class="title">اختيار المركبة</div></div>
+  <div id="pages" style="padding-bottom:30px">
+    <div class="step"><div class="n">1</div><span>الماركة</span></div>
+    <div class="chip-grid" id="makes"></div>
+    <div id="models-wrap" class="hidden" style="margin-top:22px">
+      <div class="step"><div class="n">2</div><span>الطراز</span></div>
+      <div class="chip-grid" id="models"></div>
+    </div>
+    <div id="years-wrap" class="hidden" style="margin-top:22px">
+      <div class="step"><div class="n">3</div><span>سنة الصنع</span></div>
+      <div class="chip-grid" id="years"></div>
+    </div>
+    <button class="btn btn-primary hidden" id="vehicle-confirm" style="margin-top:26px" onclick="confirmVehicle()">✓ تأكيد المركبة</button>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<div id="bottomnav">
+  <button class="nav-item on" onclick="goTab(0)"><span class="pill"><span class="ic">🏠</span></span><span>الرئيسية</span></button>
+  <button class="nav-item" onclick="goTab(1)"><span class="pill"><span class="ic">🩺</span></span><span>الفحص</span></button>
+  <button class="nav-item" onclick="goTab(2)"><span class="pill"><span class="ic">📈</span></span><span>الأوسيلوسكوب</span></button>
+  <button class="nav-item" onclick="goTab(3)"><span class="pill"><span class="ic">💾</span></span><span>البرمجة</span></button>
+  <button class="nav-item" onclick="goTab(4)"><span class="pill"><span class="ic">⚙️</span></span><span>الإعدادات</span></button>
+</div>
+
+<!-- ============ DRAWER ============ -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-head">
+    <div class="splash-logo" style="width:48px;height:48px;border-radius:14px;font-size:24px;margin:0;animation:none">🔧</div>
+    <div>
+      <div style="font-weight:900;font-size:16px">فاحص برو X1</div>
+      <div class="label">فحص • أوسيلوسكوب • برمجة</div>
+    </div>
+  </div>
+  <button class="drawer-item on" data-tab="0" onclick="goTab(0)"><span class="ic">🏠</span>الرئيسية</button>
+  <button class="drawer-item" data-tab="1" onclick="goTab(1)"><span class="ic">🩺</span>الفحص</button>
+  <button class="drawer-item" data-tab="2" onclick="goTab(2)"><span class="ic">📈</span>الأوسيلوسكوب</button>
+  <button class="drawer-item" data-tab="3" onclick="goTab(3)"><span class="ic">💾</span>البرمجة</button>
+  <button class="drawer-item" data-tab="4" onclick="goTab(4)"><span class="ic">⚙️</span>الإعدادات</button>
+  <div class="drawer-foot"><span style="color:var(--success)">🔋</span> بطارية 18600 mAh</div>
+</div>
+
+<div id="toast"></div>
+<div id="dialog-overlay">
+  <div class="dialog" id="dialog-box"></div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const MAKES = {
+  'تويوتا':['كورولا','كامري','لاند كروزر','هايلكس'],
+  'نيسان':['صني','التيما','باترول','باثفايندر'],
+  'هوندا':['سيفيك','أكورد','CR-V'],
+  'هيونداي':['إلنترا','سوناتا','توسان'],
+  'كيا':['سيراتو','سبورتاج','سورينتو'],
+  'مرسيدس':['C-Class','E-Class','GLE'],
+  'بي إم دبليو':['الفئة الثالثة','الفئة الخامسة','X5'],
+  'أودي':['A3','A4','Q5'],
+  'فولكس فاجن':['غولف','باسات','تواريغ'],
+  'فورد':['فوكس','مونديو','إكسبلورر'],
+  'ميتسوبيشي':['لانسر','أوتلاندر','باجيرو'],
+  'سوزوكي':['سويفت','فيتارا'],
+  'مازدا':['مازدا 3','مازدا 6','CX-5'],
+  'رينو':['لوجان','ميجان','داستر'],
+  'بيجو':['508','3008'],
+  'شيري':['تيغو 7','أريزو 5'],
+  'جاك':['S3','T60'],
+  'إم جي':['ZS','HS'],
+  'جيتور':['T1','X70'],
+  'كرايسلر':['300C','200','باسيفيكا','فوييجر']
+};
+const SYSTEMS = [
+  ['ecu','وحدة التحكم بالمحرك',1],['abs','المكابح ABS',1],['airbag','الوسائد الهوائية SRS',1],
+  ['tcm','ناقل الحركة',1],['bcm','جسم السيارة BCM',1],['eps','التوجيه الكهربائي',1],
+  ['esp','ثبات المركبة ESP',1],['tpms','مراقبة ضغط الإطارات',1],['em','البنزين الكهربائية',0],['imm','التشغيل الإلكتروني',1]
+];
+const DTC = [
+  {code:'P0171',desc:'الخليط فقير جداً - البنك 1',sys:'وحدة التحكم بالمحرك',sev:'متوسط',freeze:1,occ:3},
+  {code:'P0420',desc:'كفاءة المحول الحفاز أقل من الحد الأدنى - البنك 1',sys:'وحدة التحكم بالمحرك',sev:'متوسط',freeze:1,occ:1},
+  {code:'P0700',desc:'عطل في نظام التحكم بناقل الحركة',sys:'ناقل الحركة',sev:'مرتفع',freeze:0,occ:1},
+  {code:'C2215',desc:'انخفاض ضغط الإطار الأيمن الأمامي',sys:'مراقبة ضغط الإطارات',sev:'متوسط',freeze:0,occ:1}
+];
+const MODULES = [
+  {name:'تحديث وحدات المحرك ECU',desc:'تحسين استهلاك الوقود واستجابة دواسة البنزين.',ver:'v2.8.4',size:'42 MB',on:1},
+  {name:'تفعيل مراقبة النقطة العمياء',desc:'تنشيط النظام من مصنع المركبة.',ver:'v1.2.0',size:'8 MB',on:1},
+  {name:'تحديث وحدة الوسائط',desc:'إصلاح مشاكل الاتصال وواجهة الوسائط.',ver:'v5.1.2',size:'96 MB',on:1},
+  {name:'معايرة مستشعرات المساعد الأمامي',desc:'إعادة معايرة الكاميرا بعد تغيير الزجاج الأمامي.',ver:'v1.0.1',size:'12 MB',on:0}
+];
+const TAB_TITLES=['لوحة التحكم','فحص الأنظمة','الأوسيلوسكوب','البرمجة والتكويد','الإعدادات'];
+
+const state = {connected:false,method:null,vehicle:null,make:null,model:null,year:null,battery:87,codes:false,scanning:false};
+const $=id=>document.getElementById(id);
+let toastTimer;
+
+/* ============ NAV ============ */
+function goTab(i){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $('page-'+['home','scan','scope','coding','settings'][i]).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((n,j)=>n.classList.toggle('on',j===i));
+  document.querySelectorAll('.drawer-item').forEach(n=>n.classList.toggle('on',+n.dataset.tab===i));
+  $('topbar-title').textContent=TAB_TITLES[i];
+  closeDrawer();
+}
+function openDrawer(){$('drawer').classList.add('open');$('drawer-overlay').classList.add('open')}
+function closeDrawer(){$('drawer').classList.remove('open');$('drawer-overlay').classList.remove('open')}
+
+/* ============ TOAST ============ */
+function toast(msg){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function reqConn(tab){ if(state.connected){goTab(tab)} else {toast('قم بالاتصال بالجهاز أولاً');goConnect();} }
+
+/* ============ CONNECT ============ */
+function goConnect(){
+  if(state.connected){return}
+  $('screen-connect').classList.add('active');
+}
+function toggleConn(){ state.connected?disconnect():goConnect(); }
+function disconnect(){
+  state.connected=false;state.method=null;
+  setChip('off','غير متصل');$('connect-btn').textContent='🔗';
+  $('device-sub').textContent='اضغط للاتصال بالجهاز';
+  $('qa-status').textContent='تتطلب الاتصال';$('qa-status').style.color='';
+  $('set-device').textContent='غير متصل';
+  $('coding-status').textContent='اتصل بالجهاز لبدء البرمجة';
+  $('coding-status').style.color='';
+  $('battery-card').style.display='none';
+  renderModules();
+  toast('تم قطع الاتصال');
+}
+function closeConnect(){ $('screen-connect').classList.remove('active'); }
+function connect(method){
+  $('method-list').classList.add('hidden');$('connecting').classList.remove('hidden');
+  setTimeout(()=>{
+    state.connected=true;state.method=method;
+    setChip('on','متصل');$('connect-btn').textContent='✖';
+    $('device-sub').textContent='فاحص برو X1 • '+method;
+    $('qa-status').textContent='الجهاز جاهز';$('qa-status').style.color='var(--success)';
+    $('set-device').textContent='فاحص برو X1 • '+method;
+    $('coding-status').textContent='اتصال بالجهاز جاهز • يتطلب اتصال إنترنت';
+    $('coding-status').style.color='var(--success)';
+    $('battery-card').style.display='block';
+    closeConnect();
+    renderModules();
+    toast('تم الاتصال بنجاح');
+  },2000);
+}
+function setChip(mode,label){
+  const c=$('conn-chip');c.className='chip '+mode;c.querySelector('span:last-child').textContent=label;
+}
+
+/* ============ VEHICLE ============ */
+function goVehicle(){ $('screen-vehicle').classList.add('active'); }
+function closeVehicle(){ $('screen-vehicle').classList.remove('active'); }
+function renderMakes(){
+  $('makes').innerHTML=Object.keys(MAKES).map(m=>`<button class="cchip ${state.make===m?'sel':''}" onclick="pickMake('${m}')">${m}</button>`).join('');
+}
+function pickMake(m){state.make=m;state.model=null;state.year=null;
+  $('makes').innerHTML=Object.keys(MAKES).map(x=>`<button class="cchip ${x===m?'sel':''}" onclick="pickMake('${x}')">${x}</button>`).join('');
+  $('models-wrap').classList.remove('hidden');
+  $('models').innerHTML=MAKES[m].map(x=>`<button class="cchip" onclick="pickModel('${x}')">${x}</button>`).join('');
+  $('years-wrap').classList.add('hidden');$('vehicle-confirm').classList.add('hidden');
+}
+function pickModel(x){state.model=x;state.year=null;
+  $('models').innerHTML=MAKES[state.make].map(m=>`<button class="cchip ${m===x?'sel':''}" onclick="pickModel('${m}')">${m}</button>`).join('');
+  const y=new Date().getFullYear();
+  $('years-wrap').classList.remove('hidden');
+  $('years').innerHTML=Array.from({length:12},(_,i)=>y-i).map(yr=>`<button class="cchip" onclick="pickYear(${yr})">${yr}</button>`).join('');
+}
+function pickYear(yr){state.year=yr;
+  $('years').innerHTML=Array.from({length:12},(_,i)=>(new Date().getFullYear()-i)).map(yy=>`<button class="cchip ${yy===yr?'sel':''}" onclick="pickYear(${yy})">${yy}</button>`).join('');
+  $('vehicle-confirm').classList.remove('hidden');
+}
+function confirmVehicle(){
+  state.vehicle={make:state.make,model:state.model,year:state.year};
+  $('vehicle-name').textContent=`${state.make} ${state.model} ${state.year}`;
+  $('vehicle-sub').textContent='2.0L Dynamic Force • 54,230 كم';
+  $('vehicle-plate').textContent='أ ب ج 1234';
+  $('set-vehicle').textContent=`${state.make} ${state.model}`;
+  $('scan-vehicle').textContent=`${state.make} ${state.model} ${state.year}`;
+  closeVehicle();renderSystems();
+  toast('تم تحديد المركبة');
+}
+
+/* ============ SCAN ============ */
+function renderSystems(){
+  $('scan-empty').classList.add('hidden');
+  $('scan-systems').classList.remove('hidden');
+  $('scan-systems').innerHTML=`<div class="section-title">الأنظمة المتاحة (${SYSTEMS.length})</div>`+SYSTEMS.map(s=>
+    `<div class="sys"><div class="ic">🔧</div><div class="name">${s[1]}</div><div class="ok">${s[2]?'✓':'؟'}</div></div>`).join('');
+}
+function startScan(){
+  if(state.scanning)return;
+  if(!state.vehicle){toast('اختر مركبة أولاً');goVehicle();return}
+  if(!state.connected){toast('قم بالاتصال بالجهاز أولاً');return}
+  state.scanning=true;state.codes=false;
+  $('scan-btn').disabled=true; $('scan-btn').textContent='... جارٍ الفحص';
+  $('scan-systems').classList.add('hidden');$('scan-codes').classList.add('hidden');
+  $('scan-empty').classList.add('hidden');$('scan-progress').classList.remove('hidden');
+  const fg=$('ring-fg');const pct=$('scan-pct');
+  let p=0;
+  const iv=setInterval(()=>{
+    p+=4+Math.random()*6;if(p>=100){p=100;clearInterval(iv);
+      setTimeout(()=>{state.scanning=false;state.codes=true;showCodes();},300);}
+    fg.style.strokeDashoffset=377*(1-p/100);pct.textContent=Math.round(p)+'%';
+  },180);
+}
+function showCodes(){
+  $('scan-progress').classList.add('hidden');
+  $('scan-btn').disabled=false; $('scan-btn').textContent='▶ فحص شامل';
+  $('scan-codes').classList.remove('hidden');
+  $('codes-count').textContent='4 أكواد أخطاء مُسجّلة';
+  $('codes-list').innerHTML=DTC.map(d=>`
+    <div class="dtc">
+      <div class="dtc-head"><div class="dtc-bar" style="background:${d.sev==='مرتفع'?'var(--secondary)':'var(--warning)'}"></div>
+        <div class="dtc-body">
+          <div style="display:flex;align-items:center;gap:8px"><span class="dtc-code">${d.code}</span>${d.freeze?'<span class="tag">مجمّد</span>':''}</div>
+          <div class="dtc-desc">${d.desc}</div>
+        </div>
+      </div>
+      <div class="dtc-info"><span>النظام: ${d.sys}</span><span>الخطورة: ${d.sev}</span></div>
+    </div>`).join('');
+}
+function clearCodes(){
+  if(!confirm('سيتم حذف جميع الأكواد المخزنة من الجهاز. متابعة؟'))return;
+  setTimeout(()=>{
+    state.codes=false;renderSystems();
+    $('scan-codes').classList.add('hidden');$('scan-systems').classList.remove('hidden');
+    toast('تم مسح الأكواد بنجاح');
+  },900);
+}
+
+/* ============ SCOPE ============ */
+const canvas=$('scope-canvas'),ctx=canvas.getContext('2d');
+let scopeRunning=true,scopePhase=0;
+const CH=[{c:'#FFF200',amp:2.2,f:1,off:0,type:0},{c:'#00E5FF',amp:1.8,f:.6,off:0,type:1},
+          {c:'#FF6D6D',amp:1.0,f:3.2,off:-1,type:0},{c:'#69F0AE',amp:.9,f:.4,off:-2,type:2}];
+function resizeCanvas(){const r=canvas.getBoundingClientRect();canvas.width=r.width*devicePixelRatio;canvas.height=r.height*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
+window.addEventListener('resize',resizeCanvas);
+function drawScope(){
+  const w=canvas.width/devicePixelRatio,h=canvas.height/devicePixelRatio;
+  ctx.fillStyle='#05090A';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#16242A';ctx.lineWidth=1;
+  for(let x=0;x<w;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=36){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  ctx.strokeStyle='#2A3A42';
+  ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+  if(!scopeRunning)return;
+  scopePhase+=.12;
+  const N=120;
+  CH.forEach(ch=>{
+    ctx.strokeStyle=ch.c;ctx.lineWidth=2;ctx.beginPath();
+    for(let i=0;i<N;i++){
+      const x=4+(i/(N-1))*(w-8);
+      const t=i/N*2*Math.PI*ch.f+scopePhase;
+      let v;
+      if(ch.type===0)v=Math.sin(t);
+      else if(ch.type===1)v=Math.sign(Math.sin(t));
+      else v=((t/(2*Math.PI))%1)*2-1;
+      const y=h/2-(ch.amp*v+ch.off)*(h/2/3);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  });
+  requestAnimationFrame(drawScope);
+}
+function toggleScope(){scopeRunning=!scopeRunning;
+  const b=$('scope-toggle');
+  b.classList.toggle('scope-stop',scopeRunning);
+  b.classList.toggle('scope-run',!scopeRunning);
+  b.innerHTML=scopeRunning?'<span class="ic">▶</span><span>بدء / إيقاف</span>':'<span class="ic">❚❚</span><span>بدء / إيقاف</span>';
+  $('scope-status').textContent=scopeRunning?'قياس مباشر بجودة 4 قنوات':'متوقف';
+}
+
+/* ============ CODING ============ */
+function renderModules(){
+  $('modules').innerHTML=MODULES.map((m,i)=>`
+    <div class="code-module" id="mod-${i}">
+      <div class="code-top"><span class="badge ${m.on?'on':'off'}">${m.on?'أونلاين':'أوفلاين'}</span><span class="code-meta">${m.ver} • ${m.size}</span></div>
+      <div class="code-name">${m.name}</div>
+      <div class="code-desc">${m.desc}</div>
+      <div id="mod-body-${i}">
+        <button class="btn btn-primary" onclick="startCoding(${i})">⬇ تحديث البرمجة</button>
+      </div>
+    </div>`).join('');
+}
+function startCoding(i){
+  if(!state.connected){toast('قم بالاتصال بالجهاز أولاً');return}
+  const body=$('mod-body-'+i);
+  const steps=[['جارٍ التحميل من الإنترنت...',30],['جارٍ الكتابة على الوحدة...',70],['جارٍ التحقق من البيانات...',95]];
+  body.innerHTML='<div class="pbar"><div style="width:0"></div></div><div class="pstate">جارٍ التحميل من الإنترنت...</div>';
+  const bar=body.querySelector('.pbar>div'),st=body.querySelector('.pstate');
+  let k=0;
+  const iv=setInterval(()=>{
+    bar.style.width=steps[k][1]+'%';st.textContent=steps[k][0];k++;
+    if(k>=steps.length){clearInterval(iv);
+      bar.style.width='100%';
+      body.innerHTML='<div class="done-msg">✔ تمت البرمجة بنجاح</div><button class="btn btn-outline" style="margin-top:10px" onclick="renderModules()">تم</button>';
+      toast('اكتملت البرمجة بنجاح');
+    }
+  },1100);
+}
+
+/* ============ ABOUT ============ */
+function showAbout(){
+  $('dialog-box').innerHTML=`
+    <h3>حول التطبيق</h3>
+    <div style="text-align:center;margin:14px 0"><div class="splash-logo" style="width:56px;height:56px;border-radius:16px;font-size:26px;margin:0 auto;animation:none">🔧</div></div>
+    <div class="muted">فاحص برو X1 — فحص الأنظمة • الأوسيلوسكوب 4 قنوات • البرمجة والتكويد</div>
+    <div style="height:14px"></div>
+    <div class="row"><span>الجهاز</span><span>فاحص برو X1</span></div>
+    <div class="row"><span>إصدار التطبيق</span><span>v2.4.0</span></div>
+    <div class="row"><span>البرنامج الثابت</span><span>v3.2.1</span></div>
+    <div style="height:18px"></div>
+    <button class="btn btn-primary" onclick="closeDialog()">حسناً</button>`;
+  $('dialog-overlay').classList.add('open');
+}
+function closeDialog(){$('dialog-overlay').classList.remove('open')}
+
+/* ============ BATTERY ============ */
+setInterval(()=>{
+  if(state.connected){state.battery=Math.max(20,state.battery-1);
+    $('batt-pct').textContent=state.battery+'%';
+    const f=$('batt-fill');f.style.width=state.battery+'%';
+    f.style.background=state.battery<=20?'var(--danger)':state.battery<=50?'var(--warning)':'var(--success)';
+    $('batt-num').style.color=f.style.background;
+  }
+},6000);
+
+/* ============ INIT ============ */
+function init(){
+  renderMakes();renderModules();renderSystems();
+  resizeCanvas();drawScope();
+  setTimeout(()=>{$('screen-splash').classList.remove('active');$('screen-main').classList.add('active');},2000);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeDialog()}});
+init();
+</script>
+</body>
+</html>
